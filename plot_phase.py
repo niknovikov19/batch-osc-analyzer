@@ -24,11 +24,17 @@ rbin_sz = 0.001
 corr_taper_width = 0.05
 pops_incl = None
 
+# Stimulated and reference population
 pop_name_stim = 'IT3'
 ref = 'oscIT3'
 
 # Firing rate smoothing
 s = 5
+
+# Action flags
+need_plot_bars = 1
+need_plot_r_fstim_group = 0
+need_plot_r_pop_group = 0
 
 rate_data = ba.calc_rate_data(
     rbin_sz=rbin_sz, time_range=time_range, pops_incl=pops_incl,
@@ -50,84 +56,84 @@ for dirpath in [dirpath_out_bar, dirpath_out_r]:
     
 tt = rate_data[0]['data'][ref]['tvec']
 
-# =============================================================================
-# for job_id, fstim in enumerate(ff_stim):
-# 
-#     print(f'==== fstim = {fstim} ====')
-#     fvis_id = np.argmin(np.abs(ff - fstim))
-# 
-#     # Cross-spectra with reference population
-#     psd_cross = np.zeros(len(pop_names), dtype=np.complex128)
-#     for n, pop_name in enumerate(pop_names):
-#         psd = spect_data[job_id]['data'][(pop_name, ref)]['psd']
-#         rr = rate_data[job_id]['data'][pop_name]['rvec']
-#         psd /= max(rr)  # against spurious correlation due to large rate peaks
-#         psd_cross[n] = psd[fvis_id]
-# 
-#     # Bar plots for cross-spectral power and phase diff.
-#     plt.figure(111)
-#     plt.clf()
-#     plt.show()
-#     plt.get_current_fig_manager().window.showMaximized()
-#     plt.subplot(2, 1, 1)
-#     h = abs(psd_cross)
-#     ax = plt.gca()
-#     ax.bar(pop_names, h)
-#     plt.xticks(rotation=90)
-#     plt.title(f'Cross-spectral power (ref = {ref}, f = {fstim})', fontsize=9)
-#     plt.subplot(2, 1, 2)
-#     cols = np.tile(1 - sqrt(h / np.nanmax(h)), (3, 1)).T
-#     plt.bar(pop_names, np.angle(psd_cross), color=cols)
-#     plt.xticks(rotation=90)
-#     plt.title(f'Phase difference (ref = {ref}, f = {fstim})', fontsize=9)
-#     fpath_out = dirpath_out_bar / f'fstim={fstim}.png'
-#     plt.tight_layout()
-#     plt.savefig(fpath_out, dpi=300)
-#     
-#     # Firing rate dynamics
-#     s = 10
-#     dirpath_out_r_ = dirpath_out_r / f'fstim={fstim}'
-#     os.makedirs(str(dirpath_out_r_), exist_ok=True)
-#     rvec0 = gaussian_filter1d(rate_data[job_id]['data'][ref]['rvec'], s)
-#     rvec0 = (rvec0 - rvec0.mean()) / rvec0.std()
-#     for m, pop_name in enumerate(pop_names):
-#         rvec = gaussian_filter1d(rate_data[job_id]['data'][pop_name]['rvec'], s)    
-#         rvec = (rvec - rvec.mean()) / rvec.std()
-#         plt.figure(111)
-#         plt.clf()
-#         plt.show()
-#         plt.get_current_fig_manager().window.showMaximized()
-#         plt.plot(tt, rvec0, label=ref)
-#         plt.plot(tt, rvec, 'k', label=pop_name)
-#         plt.legend()
-#         plt.xlabel('Time')
-#         plt.title('Firing rate, normalized')
-#         fpath_out = dirpath_out_r_ / f'{m}_{pop_name}_{ref}.png'
-#         plt.savefig(fpath_out, dpi=300)
-# =============================================================================
-        
-for m, pop_name in enumerate(pop_names):
-    print(pop_name)
-    dirpath_out_r_ = dirpath_out_r_pop / f'{m}_{pop_name}_{ref}'
-    os.makedirs(str(dirpath_out_r_), exist_ok=True)
-    for job_id, fstim in enumerate(ff_stim):
-        rvec0 = gaussian_filter1d(rate_data[job_id]['data'][ref]['rvec'], s)
-        rvec0 = (rvec0 - rvec0.mean()) / rvec0.std()
-        rvec = gaussian_filter1d(rate_data[job_id]['data'][pop_name]['rvec'], s)    
-        rvec = (rvec - rvec.mean()) / rvec.std()
+for job_id, fstim in enumerate(ff_stim):
+
+    print(f'==== fstim = {fstim} ====')
+    fvis_id = np.argmin(np.abs(ff - fstim))
+
+    # Cross-spectra with reference population
+    psd_cross = np.zeros(len(pop_names), dtype=np.complex128)
+    for n, pop_name in enumerate(pop_names):
+        psd = spect_data[job_id]['data'][(pop_name, ref)]['psd']
+        rr = rate_data[job_id]['data'][pop_name]['rvec']
+        psd /= max(rr)  # against spurious correlation due to large rate peaks
+        psd_cross[n] = psd[fvis_id]
+
+    # Bar plots for cross-spectral power and phase diff.
+    if need_plot_bars:
         plt.figure(111)
         plt.clf()
         plt.show()
         plt.get_current_fig_manager().window.showMaximized()
-        idx_vis = slice(100, -100)
-        plt.plot(tt[idx_vis], rvec0[idx_vis], label=ref, linewidth=1)
-        plt.plot(tt[idx_vis], rvec[idx_vis], 'k', label=pop_name, linewidth=1)
-        plt.legend()
-        plt.xlabel('Time')
-        plt.title(f'Firing rate, normalized (f={fstim})')
-        fpath_out = dirpath_out_r_ / f'fstim={fstim}.png'
-        plt.savefig(fpath_out, dpi=300, backend='qtagg')
-        
+        plt.subplot(2, 1, 1)
+        h = abs(psd_cross)
+        ax = plt.gca()
+        ax.bar(pop_names, h)
+        plt.xticks(rotation=90, fontsize=7)
+        plt.title(f'Cross-spectral power (ref = {ref}, f = {fstim})', fontsize=8)
+        plt.subplot(2, 1, 2)
+        cols = np.tile(1 - sqrt(h / np.nanmax(h)), (3, 1)).T
+        plt.bar(pop_names, np.angle(psd_cross), color=cols)
+        plt.xticks(rotation=90, fontsize=7)
+        plt.title(f'Phase difference (ref = {ref}, f = {fstim})', fontsize=8)
+        fpath_out = dirpath_out_bar / f'fstim={fstim}.png'
+        plt.tight_layout()
+        plt.savefig(fpath_out, dpi=300)
+    
+    # Firing rate dynamics
+    if need_plot_r_fstim_group:
+        dirpath_out_r_ = dirpath_out_r / f'fstim={fstim}'
+        os.makedirs(str(dirpath_out_r_), exist_ok=True)
+        rvec0 = gaussian_filter1d(rate_data[job_id]['data'][ref]['rvec'], s)
+        rvec0 = (rvec0 - rvec0.mean()) / rvec0.std()
+        for m, pop_name in enumerate(pop_names):
+            rvec = gaussian_filter1d(rate_data[job_id]['data'][pop_name]['rvec'], s)    
+            rvec = (rvec - rvec.mean()) / rvec.std()
+            plt.figure(111)
+            plt.clf()
+            plt.show()
+            plt.get_current_fig_manager().window.showMaximized()
+            plt.plot(tt, rvec0, label=ref)
+            plt.plot(tt, rvec, 'k', label=pop_name)
+            plt.legend()
+            plt.xlabel('Time')
+            plt.title('Firing rate, normalized')
+            fpath_out = dirpath_out_r_ / f'{m}_{pop_name}_{ref}.png'
+            plt.savefig(fpath_out, dpi=300)
+
+if need_plot_r_pop_group:
+    for m, pop_name in enumerate(pop_names):
+        print(pop_name)
+        dirpath_out_r_ = dirpath_out_r_pop / f'{m}_{pop_name}_{ref}'
+        os.makedirs(str(dirpath_out_r_), exist_ok=True)
+        for job_id, fstim in enumerate(ff_stim):
+            rvec0 = gaussian_filter1d(rate_data[job_id]['data'][ref]['rvec'], s)
+            rvec0 = (rvec0 - rvec0.mean()) / rvec0.std()
+            rvec = gaussian_filter1d(rate_data[job_id]['data'][pop_name]['rvec'], s)    
+            rvec = (rvec - rvec.mean()) / rvec.std()
+            plt.figure(111)
+            plt.clf()
+            plt.show()
+            plt.get_current_fig_manager().window.showMaximized()
+            idx_vis = slice(100, -100)
+            plt.plot(tt[idx_vis], rvec0[idx_vis], label=ref, linewidth=1)
+            plt.plot(tt[idx_vis], rvec[idx_vis], 'k', label=pop_name, linewidth=1)
+            plt.legend()
+            plt.xlabel('Time')
+            plt.title(f'Firing rate, normalized (f={fstim})')
+            fpath_out = dirpath_out_r_ / f'fstim={fstim}.png'
+            plt.savefig(fpath_out, dpi=300)
+            
 
 # =============================================================================
 # # Amplitude and phase of cross-spectrum vs frequency (one pop. vs reference)
