@@ -7,7 +7,7 @@ import numpy as np
 from batch_analyzer import BatchAnalyzerOsc
 
 
-dirpath_data = r'D:\WORK\Salvador\repo\A1_model_old\data\grid_batch_5sec_IT3_IT5A_IT5B'
+dirpath_data = r'D:\WORK\Salvador\repo\A1_model_old\data\grid_batch_5sec_IT3_w_10'
 par_names = ['osc_pop_name', 'osc_f']
 ba = BatchAnalyzerOsc(dirpath_data, par_names)
 

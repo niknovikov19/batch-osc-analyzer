@@ -13,28 +13,14 @@ import scipy as sc
 #import scipy.signal as sig
 
 import common as cmn
+from lfp_analyzer import LFPAnalyzer
+import sim_res_parser as srp
 
 
-dirpath_root = Path(r'D:\WORK\Salvador\repo\A1_model_old\data')
-
-batch_name = 'grid_batch_IT3'
-
-run_id = '00002'
-
-rbin_sz = 0.001
-pops_included = ['oscIT3', 'IT2', 'IT3', 'ITP4', 'IT5A', 'IT5B', 'IT6']
-pops_excluded = None
-
-corr_taper_width = 0.2
-fmax = 150
-
-pop_name_0 = 'oscIT3'
-
-
-def _get_field_seq(x, seq):
+def _get_key_seq(x, seq):
     """Get x[seq[0]][seq[1]][...] """
-    for field in seq:
-        x = x[field]
+    for key in seq:
+        x = x[key]
     return x
     
 
@@ -93,17 +79,23 @@ class BatchAnalyzer:
     
     def get_data_slice(self, x: list, field_seq: list, par_vals_slice: dict):
         job_idx, par_vals_free = self.get_slice_idx(par_vals_slice)
-        res = [_get_field_seq(x[job_id], field_seq) for job_id in job_idx]
+        res = [_get_key_seq(x[job_id], field_seq) for job_id in job_idx]
         return res, par_vals_free
 
 
 class BatchAnalyzerOsc(BatchAnalyzer):
     
-    def _load_job_sim_data(self, job_id):
-        fpath_sim = self.dirpath_data / f'grid_{job_id}_data.pkl'
-        with open(fpath_sim, 'rb') as fid:
-            sim_result = pkl.load(fid)
-        return sim_result
+    def _is_pop_pair_used(self, pop1_name, pop2_name, ref=None):
+        if ref is None:
+            return True
+        elif ref == 'self':
+            return (pop1_name == pop2_name)
+        elif ref == 'osc':
+            return (pop2_name[:3] == 'osc')
+        else:
+            return pop2_name == ref
+    
+    ### Calculate/extract data for a single job
     
     def _calc_job_rate_data(self, sim_result, rbin_sz, time_range=(0, None), 
                             pops_incl=None, pops_excl=None):
@@ -132,21 +124,6 @@ class BatchAnalyzerOsc(BatchAnalyzer):
             }
         return job_rate_data
     
-    def _gen_rate_data_path(self, rbin_sz, time_range=(0, None)):
-        tstr = str(time_range).replace(', ', '_')
-        fname = f'rate_data_(rbin={rbin_sz}_t={tstr}).pkl'
-        return self.dirpath_data / fname
-    
-    def _is_pop_pair_used(self, pop1_name, pop2_name, ref=None):
-        if ref is None:
-            return True
-        elif ref == 'self':
-            return (pop1_name == pop2_name)
-        elif ref == 'osc':
-            return (pop2_name[:3] == 'osc')
-        else:
-            return pop2_name == ref
-    
     def _calc_job_spect_data(self, job_rate_data, corr_taper_width,
                              fmax, ref=None):
         """Correlations and cross-specra of the firing rate signals. """
@@ -168,11 +145,30 @@ class BatchAnalyzerOsc(BatchAnalyzer):
                         'psd': psd, 'psd_c': psd_c, 'lags': lags, 'ff': ff}
         return job_spect_data
     
+    def _calc_job_lfp_data(self, sim_result, lfp_params):
+        """LFP/bipolar/CSD power. """
+        lfp_an = LFPAnalyzer(sim_result)
+        res = lfp_an.analyze_lfp(**lfp_params)
+        return res        
+    
+    ### Generate path to calculated/extracted data, based on parameters
+    
+    def _gen_rate_data_path(self, rbin_sz, time_range=(0, None)):
+        tstr = str(time_range).replace(', ', '_')
+        fname = f'rate_data_(rbin={rbin_sz}_t={tstr}).pkl'
+        return self.dirpath_data / fname
+    
     def _gen_spect_data_path(self, rbin_sz, time_range=(0, None),
                              corr_taper_width=0.05, ref=None):
         tstr = str(time_range).replace(', ', '_')
         fname = f'spect_data_(rbin={rbin_sz}_t={tstr}_ctaper={corr_taper_width}_ref={ref}).pkl'
         return self.dirpath_data / fname
+    
+    def _gen_lfp_data_path(self, lfp_params):
+        fname = f'lfp_data_(pow={lfp_params["pow_type"]}).pkl'
+        return self.dirpath_data / fname
+    
+    ### Calculate/extract and save data for every job, or load pre-calculated data
     
     def calc_rate_data(self, rbin_sz, time_range=(0, None), 
                        pops_incl=None, pops_excl=None, need_recalc=False):
@@ -221,26 +217,30 @@ class BatchAnalyzerOsc(BatchAnalyzer):
                 
         return spect_data
     
-
-
+    def calc_lfp_data(self, lfp_params, need_recalc=False):
+        """Calculate/load LFP/bipolar/CSD power for every job. """
+        
+        fpath_data = self._gen_lfp_data_path(lfp_params)
+        if os.path.exists(fpath_data) and not need_recalc:
+            with open(fpath_data, 'rb') as fid:
+                lfp_data = pkl.load(fid)
+        else:
+            lfp_data = []
+            for job_id, job_par in enumerate(self.par_vals_lst):
+                print(f'==== Job: {job_id} ====')
+                sim_result = self.load_job_sim_data(job_id)
+                job_lfp_data = self._calc_job_lfp_data(
+                    sim_result, lfp_params)
+                lfp_data.append({'data': job_lfp_data, 'params': job_par})
+            with open(fpath_data, 'wb') as fid:
+                pkl.dump(lfp_data, fid)
+                
+        return lfp_data
+    
+    ###
+    
+    def get_job_lfp(self, job_id):
+        sim_result = self.load_job_sim_data(job_id)
+        return srp.get_lfp(sim_result)
     
 
-# =============================================================================
-# from netpyne.plotting.plotRaster import plotRaster
-# 
-# job_id = 0
-# dirpath_data = r'D:\WORK\Salvador\repo\A1_model_old\data\grid_batch_5sec_IT3_IT5A_IT5B'
-# fpath_data = Path(dirpath_data) / f'grid_{job_id:05d}_data.pkl'
-# with open(fpath_data, 'rb') as fid:
-#     X = pkl.load(fid)
-# S = X['simData']
-# S['spkTimes'] = S.pop('spkt')
-# S['spkGids'] = S.pop('spkid')
-# S['spkInds'] = S['spkGids']
-# S = dict(S)
-# 
-# S['spkInds'] = [gid - 1 for gid in S['spkGids']]
-# fpath_data = str(fpath_data)
-# plotRaster(S)
-# 
-# =============================================================================

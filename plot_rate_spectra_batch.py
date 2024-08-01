@@ -14,14 +14,14 @@ import common as cmn
 matplotlib.use('qtagg')
 
 
-dirpath_data = r'D:\WORK\Salvador\repo\A1_model_old\data\grid_batch_5sec_IT3_IT5A_IT5B'
+dirpath_data = r'D:\WORK\Salvador\repo\A1_model_old\data\grid_batch_5sec_IT3_w_10'
 par_names = ['osc_pop_name', 'osc_f']
 ba = BatchAnalyzerOsc(dirpath_data, par_names)
 
 # Firing rate calculation params
 time_range = (2, None)
 rbin_sz = 0.001
-corr_taper_width = 0.05
+corr_taper_width = 0.5
 pops_incl = None
 
 # Stimulated and reference population
@@ -33,20 +33,25 @@ s = 5
 
 # Action flags
 need_plot_bars = 1
-need_plot_r_fstim_group = 0
-need_plot_r_pop_group = 0
+need_plot_r_fstim_group = 1
+need_plot_r_pop_group = 1
 
+# Calculate/load firing rate dynamics
 rate_data = ba.calc_rate_data(
     rbin_sz=rbin_sz, time_range=time_range, pops_incl=pops_incl,
     need_recalc=False)
+
+# Calculate/load firing rate (cross-)spectra
 spect_data = ba.calc_spect_data(
     rbin_sz=rbin_sz, time_range=time_range, pops_incl=pops_incl,
     corr_taper_width=corr_taper_width, ref=ref, need_recalc=False)
+
 
 pop_names = list(rate_data[0]['data'].keys())[:-1]
 job_idx, ff_stim = ba.get_slice_idx({'osc_pop_name': pop_name_stim})
 ff = spect_data[0]['data'][(pop_names[0], ref)]['ff']
 
+# Output folders
 dirpath_out = Path(dirpath_data) / 'spect' / f'stim_{pop_name_stim}'
 dirpath_out_bar = dirpath_out / f'cross_ref={ref}_bar'
 dirpath_out_r = dirpath_out / f'cross_ref={ref}_r_group=fstim_s={s}'

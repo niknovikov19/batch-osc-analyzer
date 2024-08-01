@@ -8,7 +8,8 @@ import copy
 #import inspect
 
 import json
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgba
 import numpy as np
 import os
 import pickle
@@ -375,13 +376,14 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def fft_smart(x, t, fmax=None):
-    f = np.fft.fftfreq(len(x), t[1] - t[0])
+def fft_smart(x, t, fmax=None, axis=-1):
+    f = np.fft.fftfreq(len(t), t[1] - t[0])
     y = np.fft.fft(x)
     mask = (f >= 0)
     if fmax:
         mask &= (f < fmax)
-    return f[mask], y[mask]    
+    idx = np.argwhere(mask).ravel()
+    return f[idx], y.take(idx, axis=axis)
     
 def make_closest_angle_seq(phi, mod=np.pi, step=1):
     #y = phi % mod
@@ -396,6 +398,20 @@ def make_closest_angle_seq(phi, mod=np.pi, step=1):
         y[n] = y[n - step] + d
     return y
      
-  
 def minmax(x):
     return (np.min(x), np.max(x))
+
+def todict_rec(x):
+    try:
+        d = x.__dict__
+        for key, val in d.items():
+            d[key] = todict_rec(val)
+        return d
+    except Exception:
+        return str(x)
+
+def get_default_colors():
+    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    default_colors_rgb = [to_rgba(color) for color in default_colors]
+    return default_colors_rgb
+        
