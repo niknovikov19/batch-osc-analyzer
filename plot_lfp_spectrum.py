@@ -12,6 +12,7 @@ from scipy.ndimage import gaussian_filter1d, gaussian_filter
 
 from batch_analyzer import BatchAnalyzerOsc
 import common as cmn
+import sim_res_parser as srp
 
 matplotlib.use('qtagg')
 
@@ -37,6 +38,8 @@ t_lim = (1, 10)
 
 fpath_in = r'D:\WORK\Salvador\repo\A1_model_old\data\A1_paper\v34_batch56_10s_data.pkl'
 
+dirpath_out = r'D:\WORK\Salvador\repo\A1_model_old\data\A1_paper\v34_batch56_10s_data'
+
 # Reference channel
 #ref_chan = None
 ref_chan = 0
@@ -50,23 +53,27 @@ pow_type = 'csd'
 
 # Normalize each freq. power by its max. over channels
 #pow_norm = 'none'
-#pow_norm = 'freq'
-pow_norm = 'band'
+pow_norm = 'freq'
+#pow_norm = 'band'
 
 need_log = 0
 
 need_reload = 0
-need_plot_f = 0
+need_plot_f = 1
 need_plot_d = 1
-need_plot_fd = 0
+need_plot_fd = 1
+need_save = 1
 
 # Smoothing window lengths
 sm_f = 10
 sm_d = 1
 
+need_smooth = 1
+
 # Frequency bands
 fband_low = (10, 30)
-fband_high = (50, 150)
+#fband_high = (50, 150)
+fband_high = (40, 100)
 
 layer_groups = [(0, 950), (950, 1250), (1250, 2000)]
 #layer_groups = [(0, 1000), (1000, 2000)]
@@ -76,7 +83,7 @@ layer_groups = [(0, 950), (950, 1250), (1250, 2000)]
 if need_reload:
     with open(fpath_in, 'rb') as fid:
         sim_result = pkl.load(fid)    
-lfp, tt, lfp_coords = BatchAnalyzerOsc.get_lfp(sim_result)
+lfp, tt, lfp_coords = srp.get_lfp(sim_result)
 tt /= 1000
 lfp = lfp.T
 yy = lfp_coords[:, 1]
@@ -127,30 +134,51 @@ def plot_layer_borders(x0, x1, all_layers=True):
             col = 'k'
         for n in [0, 1]:
             plt.plot([x0, x1], [yy_[n], yy_[n]], f'{col}--')
-            
+
+# Output folders
+dirname_out = f'low=({fband_low[0]}_{fband_low[1]})_high=({fband_high[0]}_{fband_high[1]})'
+dirpath_out_d = Path(dirpath_out) / dirname_out/ 'depth_plots'
+dirpath_out_f = Path(dirpath_out) / dirname_out / 'freq_plots'
+dirpath_out_df = Path(dirpath_out) / dirname_out / 'df_plots'
+for path_ in [dirpath_out_d, dirpath_out_f, dirpath_out_df]:
+    os.makedirs(str(path_), exist_ok=True)
+
 title_str = f'{pow_type}, ref={ref_chan}, norm={pow_norm}, log={need_log}'
 
 if need_plot_f:
-    plt.figure()
+    f_lim = (2, 150)
+    f_mask = ((ff >= f_lim[0]) & (ff <= f_lim[1]))
+    W_ = W[:, f_mask]
+    ff_ = ff[f_mask]
+    plt.figure(111)
+    plt.clf()
     for ylim in layer_groups:
         mask = (yy >= ylim[0]) & (yy <= ylim[1])
-        w = W[mask, :].mean(axis=0)
-        w = smooth(w, sm_f)
+        w = W_[mask, :].mean(axis=0)
+        if need_smooth:
+            w = smooth(w, sm_f)
         if need_log:
             w = log(w)
-        plt.plot(ff, w, label=f'y={ylim[0]}-{ylim[1]}')
+        plt.plot(ff_, w, label=f'y={ylim[0]}-{ylim[1]}')
     plt.legend()
     plt.xlabel('Frequency')
-    plt.title(title_str)
+    sm_ = sm_f if need_smooth else 0
+    title_str_ = title_str + f', smooth={sm_}'
+    plt.title(title_str_)
+    if need_save:
+        fname_out = title_str_.replace(', ', '_') + '.png'
+        plt.savefig(dirpath_out_f / fname_out)
 
 if need_plot_d:
-    plt.figure()
+    plt.figure(111)
+    plt.clf()
     fbands = [fband_low, fband_high]
     for fband in fbands:
         w = W[:, (ff >= fband[0]) & (ff <= fband[1])].mean(axis=1)
         if pow_norm == 'band':
             w /= w.max()
-        w = smooth(w, sm_d)
+        if need_smooth:
+            w = smooth(w, sm_d)
         if need_log:
             w = log(w)
         plt.plot(w, yy, label=f'{fband[0]}-{fband[1]}')
@@ -158,20 +186,33 @@ if need_plot_d:
         #wmax = np.maximum(max(wlow), max(whigh))
     plot_layer_borders(0, 1, all_layers=False)
     plt.gca().invert_yaxis()
-    plt.ylabel('Depth')
     plt.legend()
-    plt.title(title_str)
+    plt.ylabel('Depth')
+    sm_ = sm_d if need_smooth else 0
+    title_str_ = title_str + f', smooth={sm_}'
+    plt.title(title_str_)
+    if need_save:
+        fname_out = title_str_.replace(', ', '_') + '.png'
+        plt.savefig(dirpath_out_d / fname_out)
 
 if need_plot_fd:
     f_lim = (2, 150)
     f_mask = ((ff >= f_lim[0]) & (ff <= f_lim[1]))
-    Wsm = smooth(W[:, f_mask], sm_d, sm_f)
+    W_ = W[:, f_mask]
+    if need_smooth:
+        W_ = smooth(W_, sm_d, sm_f)
     if need_log:
-        Wsm = log(Wsm)    
-    plt.figure()
+        W_ = log(W_)    
+    plt.figure(111)
+    plt.clf()
     ext = (ff[f_mask][0], ff[f_mask][-1], sim_result['simConfig']['sizeY'], 0)
-    plt.imshow(Wsm, aspect='auto', extent=ext, origin='upper')
+    plt.imshow(W_, aspect='auto', extent=ext, origin='upper')
     plot_layer_borders(ext[0], ext[1])
     plt.xlabel('Frequency')
     plt.ylabel('Depth')
-    plt.title(title_str)
+    sm_ = (sm_f, sm_d) if need_smooth else (0, 0)
+    title_str_ = title_str + f', smooth=({sm_[0]}_{sm_[1]})'
+    plt.title(title_str_)
+    if need_save:
+        fname_out = title_str_.replace(', ', '_') + '.png'
+        plt.savefig(dirpath_out_df / fname_out)
