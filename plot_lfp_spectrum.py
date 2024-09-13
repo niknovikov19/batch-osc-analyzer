@@ -47,9 +47,9 @@ ref_chan = 0
 fmax = 150
 
 # LFP or CSD
-#pow_type = 'lfp'
+pow_type = 'lfp'
 #pow_type = 'bipolar'
-pow_type = 'csd'
+#pow_type = 'csd'
 
 # Normalize each freq. power by its max. over channels
 #pow_norm = 'none'
@@ -59,9 +59,9 @@ pow_norm = 'freq'
 need_log = 0
 
 need_reload = 0
-need_plot_f = 1
+need_plot_f = 0
 need_plot_d = 1
-need_plot_fd = 1
+need_plot_fd = 0
 need_save = 1
 
 # Smoothing window lengths
@@ -184,7 +184,8 @@ if need_plot_d:
         plt.plot(w, yy, label=f'{fband[0]}-{fband[1]}')
         #wmin = np.minimum(min(wlow), min(whigh))
         #wmax = np.maximum(max(wlow), max(whigh))
-    plot_layer_borders(0, 1, all_layers=False)
+        #plot_layer_borders(0, 1, all_layers=False)
+        plot_layer_borders(0, max(w), all_layers=False)
     plt.gca().invert_yaxis()
     plt.legend()
     plt.ylabel('Depth')

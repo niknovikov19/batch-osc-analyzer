@@ -129,7 +129,7 @@ for W, f in zip(lfp_pow, fstim):
     plt.figure(111)
     plt.clf()
     ext = (ff[f_mask][0], ff[f_mask][-1], dd[-1], dd[0])
-    plt.imshow(Wsm, aspect='auto', extent=ext, origin='upper', vmin=0, vmax=4.5)
+    plt.imshow(Wsm, aspect='auto', extent=ext, origin='upper', vmin=0, vmax=3.5)
                #vmin=-2.5, vmax=-0.25)
     plot_layer_borders(sim_result, ext[0], ext[1])
     plt.xlabel('Frequency')

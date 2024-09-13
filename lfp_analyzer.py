@@ -43,7 +43,8 @@ class LFPAnalyzer:
         self.depth_vec = lfp_coords[:, 1]
         self.lfp = lfp.T
         
-    def _preprocess_lfp(self, t_lim, ref_chan, pow_type):        
+    def _preprocess_lfp(self, t_lim, ref_chan, pow_type):
+        
         X = self.lfp
         tt = self.tvec
 
